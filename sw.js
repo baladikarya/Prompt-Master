@@ -1,10 +1,11 @@
-const CACHE_NAME = 'promptmaster-v4';
+const CACHE_NAME = 'promptmaster-v5';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './icon-maskable-512.png',
   './apple-touch-icon.png',
   './favicon-32.png',
   'https://cdn.tailwindcss.com',
