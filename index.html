@@ -61,14 +61,23 @@
 </head>
 <body class="min-h-screen flex flex-col p-4 md:p-8">
 
-    <!-- PWA Install Button -->
-    <div id="installContainer" class="hidden justify-end mb-2 max-w-4xl mx-auto w-full">
-        <button id="installBtn" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium py-2 px-4 rounded-lg border border-gray-600 shadow-md transition-colors flex items-center gap-2">
+    <!-- Top Bar -->
+    <div class="max-w-4xl mx-auto w-full mb-2 flex items-center justify-between gap-2">
+        <button id="historyToggleBtn" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium py-2 px-4 rounded-lg border border-gray-600 shadow-md transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Install App
+            Riwayat
+            <span id="historyToggleCount" class="text-xs font-medium bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full">0</span>
         </button>
+        <div id="installContainer" class="hidden">
+            <button id="installBtn" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium py-2 px-4 rounded-lg border border-gray-600 shadow-md transition-colors flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Install App
+            </button>
+        </div>
     </div>
 
     <header class="max-w-4xl mx-auto w-full mb-8 text-center pt-2">
@@ -112,18 +121,6 @@
                     <div id="btnLoader" class="loader hidden"></div>
                 </button>
             </div>
-        </section>
-
-        <!-- History Section -->
-        <section id="historySection" class="hidden glass-panel rounded-2xl p-6 shadow-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold flex items-center gap-2">
-                    Riwayat Prompt
-                    <span id="historyCount" class="text-xs font-medium bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full">0</span>
-                </h2>
-                <button id="clearHistoryBtn" class="text-xs text-gray-400 hover:text-red-400 border border-gray-700 hover:border-red-500/40 px-3 py-1.5 rounded-lg transition-colors">Hapus Semua</button>
-            </div>
-            <ul id="historyList" class="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1"></ul>
         </section>
 
         <!-- Output Section -->
@@ -177,6 +174,27 @@
 
         </section>
     </main>
+
+    <!-- History Sidebar (drawer) -->
+    <div id="historyBackdrop" class="fixed inset-0 bg-black/60 z-40 hidden"></div>
+    <aside id="historyDrawer" class="fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-[#141414] border-r border-gray-800 shadow-2xl z-50 -translate-x-full transition-transform duration-300 ease-out flex flex-col">
+        <div class="flex justify-between items-center p-4 border-b border-gray-800">
+            <h2 class="text-base font-semibold flex items-center gap-2">
+                Riwayat Prompt
+                <span id="historyCount" class="text-xs font-medium bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full">0</span>
+            </h2>
+            <button id="historyCloseBtn" class="text-gray-500 hover:text-white p-1.5 rounded-lg transition-colors" aria-label="Tutup riwayat">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="flex-grow overflow-y-auto p-3">
+            <p id="historyEmpty" class="text-sm text-gray-500 text-center py-10">Belum ada riwayat prompt.</p>
+            <ul id="historyList" class="flex flex-col gap-2"></ul>
+        </div>
+        <div class="p-3 border-t border-gray-800">
+            <button id="clearHistoryBtn" class="w-full text-sm text-gray-400 hover:text-red-400 border border-gray-700 hover:border-red-500/40 py-2 rounded-xl transition-colors">Hapus Semua</button>
+        </div>
+    </aside>
 
     <!-- Toast Notification -->
     <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-xl shadow-2xl border border-gray-700 hidden items-center gap-3 z-50">
@@ -410,10 +428,38 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
         // History Management
         const HISTORY_KEY = 'promptmaster_history';
         const HISTORY_LIMIT = 50;
-        const historySection = document.getElementById('historySection');
+        const historyDrawer = document.getElementById('historyDrawer');
+        const historyBackdrop = document.getElementById('historyBackdrop');
+        const historyEmpty = document.getElementById('historyEmpty');
         const historyList = document.getElementById('historyList');
         const historyCount = document.getElementById('historyCount');
+        const historyToggleCount = document.getElementById('historyToggleCount');
+        const historyToggleBtn = document.getElementById('historyToggleBtn');
+        const historyCloseBtn = document.getElementById('historyCloseBtn');
         const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        function openHistory() {
+            historyDrawer.classList.remove('-translate-x-full');
+            historyBackdrop.classList.remove('hidden');
+        }
+
+        function closeHistory() {
+            historyDrawer.classList.add('-translate-x-full');
+            historyBackdrop.classList.add('hidden');
+        }
+
+        historyToggleBtn.addEventListener('click', () => {
+            if (historyDrawer.classList.contains('-translate-x-full')) {
+                openHistory();
+            } else {
+                closeHistory();
+            }
+        });
+        historyCloseBtn.addEventListener('click', closeHistory);
+        historyBackdrop.addEventListener('click', closeHistory);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeHistory();
+        });
 
         function getHistory() {
             try {
@@ -455,12 +501,10 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             const items = getHistory();
             historyList.innerHTML = '';
             historyCount.textContent = items.length;
+            historyToggleCount.textContent = items.length;
+            historyEmpty.classList.toggle('hidden', items.length > 0);
 
-            if (items.length === 0) {
-                historySection.classList.add('hidden');
-                return;
-            }
-            historySection.classList.remove('hidden');
+            if (items.length === 0) return;
 
             items.forEach((item) => {
                 const li = document.createElement('li');
@@ -503,6 +547,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             basicPromptInput.value = item.idea || '';
             hideError();
             displayResults(item.data);
+            closeHistory();
         }
 
         function deleteHistoryItem(id) {
