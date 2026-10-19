@@ -1,4 +1,4 @@
-const CACHE_NAME = 'promptmaster-v3';
+const CACHE_NAME = 'promptmaster-v4';
 const APP_SHELL = [
   './',
   './index.html',

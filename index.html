@@ -84,10 +84,7 @@
         <h1 class="text-3xl md:text-5xl font-bold mb-4 tracking-tight">
             <span class="text-orange-400">Master</span> Prompt Builder
         </h1>
-        <p class="text-gray-400 text-lg max-w-2xl mx-auto">
-            Ubah ide sederhana Anda menjadi prompt tingkat lanjut berdasarkan struktur "The Anatomy of a Claude Prompt".
-        </p>
-        <button id="toggleKeyBtn" class="hidden mt-3 text-xs text-gray-500 hover:text-orange-400 underline transition-colors">Ganti API Key</button>
+        <button id="toggleKeyBtn" class="hidden text-xs text-gray-500 hover:text-orange-400 underline transition-colors">Ganti API Key</button>
     </header>
 
     <main class="max-w-4xl mx-auto w-full flex-grow flex flex-col gap-6">
@@ -165,11 +162,6 @@
             <div class="glass-panel rounded-xl p-5 border-l-4 border-l-purple-500">
                 <h3 class="text-purple-400 font-bold mb-2 uppercase text-xs tracking-wider">Output</h3>
                 <p id="outFormat" class="text-gray-300 leading-relaxed"></p>
-            </div>
-
-            <div class="mt-4 glass-panel rounded-xl p-6 border border-gray-700">
-                <h3 class="text-gray-400 font-bold mb-4 uppercase text-xs tracking-wider">Full Prompt Preview</h3>
-                <textarea id="fullPromptText" class="w-full bg-[#111] border border-gray-800 rounded-lg p-4 text-gray-300 text-sm h-64 focus:outline-none" readonly></textarea>
             </div>
 
         </section>
@@ -265,6 +257,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
         const btnLoader = document.getElementById('btnLoader');
         const resultSection = document.getElementById('resultSection');
         const errorBox = document.getElementById('errorBox');
+        let currentFullPrompt = '';
 
         function hideError() {
             errorBox.classList.add('hidden');
@@ -417,8 +410,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             document.getElementById('outStop').innerText = data.stopConditions;
             document.getElementById('outFormat').innerText = data.outputFormat;
 
-            const fullPrompt = `${data.role}\n\n${data.task}\n\nHere's what I know (Context):\n${data.context}\n\n${data.reasoning}\n\nOnly stop when (Stop conditions):\n${data.stopConditions}\n\nOutput format:\n${data.outputFormat}`;
-            document.getElementById('fullPromptText').value = fullPrompt;
+            currentFullPrompt = `${data.role}\n\n${data.task}\n\nHere's what I know (Context):\n${data.context}\n\n${data.reasoning}\n\nOnly stop when (Stop conditions):\n${data.stopConditions}\n\nOutput format:\n${data.outputFormat}`;
 
             resultSection.classList.remove('hidden');
             resultSection.classList.add('flex');
@@ -566,14 +558,23 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
         renderHistory();
 
         document.getElementById('copyFullBtn').addEventListener('click', async () => {
-            const text = document.getElementById('fullPromptText').value;
+            const text = currentFullPrompt;
+            if (!text) {
+                showToast("Belum ada prompt untuk disalin.", true);
+                return;
+            }
             try {
                 if (navigator.clipboard && window.isSecureContext) {
                     await navigator.clipboard.writeText(text);
                 } else {
-                    const textArea = document.getElementById('fullPromptText');
-                    textArea.select();
+                    const temp = document.createElement('textarea');
+                    temp.value = text;
+                    temp.style.position = 'fixed';
+                    temp.style.opacity = '0';
+                    document.body.appendChild(temp);
+                    temp.select();
                     document.execCommand('copy');
+                    document.body.removeChild(temp);
                 }
                 showToast("Prompt berhasil disalin ke clipboard!");
             } catch (err) {
