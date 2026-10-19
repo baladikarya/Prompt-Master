@@ -78,22 +78,23 @@
         <p class="text-gray-400 text-lg max-w-2xl mx-auto">
             Ubah ide sederhana Anda menjadi prompt tingkat lanjut berdasarkan struktur "The Anatomy of a Claude Prompt".
         </p>
+        <button id="toggleKeyBtn" class="hidden mt-3 text-xs text-gray-500 hover:text-orange-400 underline transition-colors">Ganti API Key</button>
     </header>
 
     <main class="max-w-4xl mx-auto w-full flex-grow flex flex-col gap-6">
 
-        <!-- API Key Configuration -->
-        <section class="glass-panel rounded-2xl p-6 shadow-xl border border-orange-500/20">
+        <!-- API Key Configuration (disembunyikan otomatis bila key sudah tersimpan) -->
+        <section id="apiKeySection" class="hidden glass-panel rounded-2xl p-6 shadow-xl border border-orange-500/20">
             <div class="flex flex-col md:flex-row gap-4 items-end">
                 <div class="flex-grow w-full">
-                    <label for="apiKeyInput" class="block text-sm font-medium text-gray-300 mb-2">Gemini API Key (Required for external hosting)</label>
-                    <input type="password" id="apiKeyInput" class="w-full bg-[#111] border border-gray-700 rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all" placeholder="Enter your Gemini API Key here...">
+                    <label for="apiKeyInput" class="block text-sm font-medium text-gray-300 mb-2">Gemini API Key</label>
+                    <input type="password" id="apiKeyInput" class="w-full bg-[#111] border border-gray-700 rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all" placeholder="Tempel Gemini API Key Anda di sini...">
                 </div>
                 <button id="saveApiBtn" class="bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 px-6 rounded-xl transition-colors w-full md:w-auto border border-gray-600">
                     Save Key
                 </button>
             </div>
-            <p class="text-xs text-gray-500 mt-2">API key is saved locally in your browser. Get yours at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-orange-400 underline">Google AI Studio</a>.</p>
+            <p class="text-xs text-gray-500 mt-2">Kunci disimpan lokal di browser ini. Buat kunci gratis (Free tier) di <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-orange-400 underline">Google AI Studio</a>.</p>
         </section>
 
         <!-- Input Section -->
@@ -111,6 +112,18 @@
                     <div id="btnLoader" class="loader hidden"></div>
                 </button>
             </div>
+        </section>
+
+        <!-- History Section -->
+        <section id="historySection" class="hidden glass-panel rounded-2xl p-6 shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold flex items-center gap-2">
+                    Riwayat Prompt
+                    <span id="historyCount" class="text-xs font-medium bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full">0</span>
+                </h2>
+                <button id="clearHistoryBtn" class="text-xs text-gray-400 hover:text-red-400 border border-gray-700 hover:border-red-500/40 px-3 py-1.5 rounded-lg transition-colors">Hapus Semua</button>
+            </div>
+            <ul id="historyList" class="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1"></ul>
         </section>
 
         <!-- Output Section -->
@@ -190,12 +203,30 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
         // API Key Management
         const apiKeyInput = document.getElementById('apiKeyInput');
         const saveApiBtn = document.getElementById('saveApiBtn');
+        const apiKeySection = document.getElementById('apiKeySection');
+        const toggleKeyBtn = document.getElementById('toggleKeyBtn');
 
-        window.addEventListener('DOMContentLoaded', () => {
+        function showKeySection(show) {
+            apiKeySection.classList.toggle('hidden', !show);
+            toggleKeyBtn.classList.toggle('hidden', show);
+        }
+
+        function refreshKeyUI() {
             const savedKey = localStorage.getItem('gemini_api_key');
             if (savedKey) {
                 apiKeyInput.value = savedKey;
+                showKeySection(false);
+            } else {
+                showKeySection(true);
             }
+        }
+
+        refreshKeyUI();
+
+        toggleKeyBtn.addEventListener('click', () => {
+            const willShow = apiKeySection.classList.contains('hidden');
+            showKeySection(willShow);
+            if (willShow) apiKeyInput.focus();
         });
 
         saveApiBtn.addEventListener('click', () => {
@@ -203,6 +234,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             if (key) {
                 localStorage.setItem('gemini_api_key', key);
                 showToast("API Key berhasil disimpan!");
+                showKeySection(false);
             } else {
                 showToast("API Key tidak boleh kosong.", true);
             }
@@ -318,6 +350,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
                         throw new Error("Respons model bukan JSON yang valid. Coba lagi.");
                     }
                     displayResults(parsedData);
+                    addToHistory(userText, parsedData);
                 } else {
                     throw new Error("Format respons tidak sesuai.");
                 }
@@ -333,6 +366,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
                         "Buka Billing AI Studio"
                     );
                 } else if (error.status === 401 || error.status === 403) {
+                    showKeySection(true);
                     showApiError(
                         "API Key ditolak.",
                         "Kunci tidak valid, tidak punya akses ke model ini, atau belum dibatasi ke Gemini API. Buat kunci baru di AI Studio (otomatis dibatasi) lalu simpan ulang.",
@@ -372,6 +406,119 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             resultSection.classList.add('flex');
             setTimeout(() => { resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
         }
+
+        // History Management
+        const HISTORY_KEY = 'promptmaster_history';
+        const HISTORY_LIMIT = 50;
+        const historySection = document.getElementById('historySection');
+        const historyList = document.getElementById('historyList');
+        const historyCount = document.getElementById('historyCount');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        function getHistory() {
+            try {
+                const raw = localStorage.getItem(HISTORY_KEY);
+                const items = raw ? JSON.parse(raw) : [];
+                return Array.isArray(items) ? items : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function setHistory(items) {
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+            } catch (e) {
+                console.warn('Gagal menyimpan riwayat:', e);
+            }
+            renderHistory();
+        }
+
+        function addToHistory(idea, data) {
+            const items = getHistory();
+            items.unshift({
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                idea,
+                createdAt: Date.now(),
+                data
+            });
+            setHistory(items.slice(0, HISTORY_LIMIT));
+        }
+
+        function formatDate(ts) {
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+        }
+
+        function renderHistory() {
+            const items = getHistory();
+            historyList.innerHTML = '';
+            historyCount.textContent = items.length;
+
+            if (items.length === 0) {
+                historySection.classList.add('hidden');
+                return;
+            }
+            historySection.classList.remove('hidden');
+
+            items.forEach((item) => {
+                const li = document.createElement('li');
+                li.className = 'bg-[#111] border border-gray-800 hover:border-orange-500/50 rounded-xl p-3 flex items-start justify-between gap-3 cursor-pointer transition-colors';
+                li.addEventListener('click', () => loadHistoryItem(item.id));
+
+                const info = document.createElement('div');
+                info.className = 'min-w-0 flex-grow';
+
+                const title = document.createElement('p');
+                title.className = 'text-sm text-gray-200 truncate';
+                title.textContent = item.idea || '(tanpa judul)';
+
+                const meta = document.createElement('p');
+                meta.className = 'text-xs text-gray-500 mt-1';
+                meta.textContent = formatDate(item.createdAt);
+
+                info.appendChild(title);
+                info.appendChild(meta);
+
+                const del = document.createElement('button');
+                del.className = 'shrink-0 text-gray-600 hover:text-red-400 p-1 rounded-lg transition-colors';
+                del.title = 'Hapus';
+                del.setAttribute('aria-label', 'Hapus riwayat');
+                del.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+                del.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteHistoryItem(item.id);
+                });
+
+                li.appendChild(info);
+                li.appendChild(del);
+                historyList.appendChild(li);
+            });
+        }
+
+        function loadHistoryItem(id) {
+            const item = getHistory().find((entry) => entry.id === id);
+            if (!item) return;
+            basicPromptInput.value = item.idea || '';
+            hideError();
+            displayResults(item.data);
+        }
+
+        function deleteHistoryItem(id) {
+            setHistory(getHistory().filter((entry) => entry.id !== id));
+            showToast("Riwayat dihapus.");
+        }
+
+        clearHistoryBtn.addEventListener('click', () => {
+            if (getHistory().length === 0) return;
+            if (window.confirm('Hapus semua riwayat prompt?')) {
+                setHistory([]);
+                showToast("Semua riwayat dihapus.");
+            }
+        });
+
+        renderHistory();
 
         document.getElementById('copyFullBtn').addEventListener('click', async () => {
             const text = document.getElementById('fullPromptText').value;
