@@ -1,14 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prompt Master Builder</title>
+    <meta name="description" content="Ubah ide sederhana menjadi prompt tingkat lanjut dengan struktur The Anatomy of a Claude Prompt.">
     <meta name="theme-color" content="#1a1a1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PromptMaster">
-    <link rel="manifest" id="manifest-link">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -26,14 +29,14 @@
             width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #1a1a1a; 
+            background: #1a1a1a;
         }
         ::-webkit-scrollbar-thumb {
-            background: #444; 
+            background: #444;
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #555; 
+            background: #555;
         }
         .loader {
             border: 3px solid rgba(255,255,255,0.1);
@@ -59,7 +62,7 @@
 <body class="min-h-screen flex flex-col p-4 md:p-8">
 
     <!-- PWA Install Button -->
-    <div id="installContainer" class="hidden flex justify-end mb-2 max-w-4xl mx-auto w-full">
+    <div id="installContainer" class="hidden justify-end mb-2 max-w-4xl mx-auto w-full">
         <button id="installBtn" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium py-2 px-4 rounded-lg border border-gray-600 shadow-md transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -78,7 +81,7 @@
     </header>
 
     <main class="max-w-4xl mx-auto w-full flex-grow flex flex-col gap-6">
-        
+
         <!-- API Key Configuration -->
         <section class="glass-panel rounded-2xl p-6 shadow-xl border border-orange-500/20">
             <div class="flex flex-col md:flex-row gap-4 items-end">
@@ -96,10 +99,12 @@
         <!-- Input Section -->
         <section class="glass-panel rounded-2xl p-6 shadow-xl">
             <label for="basicPrompt" class="block text-sm font-medium text-gray-300 mb-2">Ide Prompt Singkat Anda</label>
-            <textarea id="basicPrompt" rows="3" 
+            <textarea id="basicPrompt" rows="3"
                 class="w-full bg-[#111] border border-gray-700 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                 placeholder="Contoh: Buatkan saya rencana marketing untuk jualan kopi susu di Instagram."></textarea>
-            
+
+            <div id="errorBox" class="hidden mt-4 text-sm bg-red-500/10 border border-red-500/30 text-red-300 rounded-xl p-4 leading-relaxed"></div>
+
             <div class="mt-4 flex justify-end">
                 <button id="generateBtn" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-8 rounded-xl transition-colors flex items-center gap-2 shadow-lg shadow-orange-500/20">
                     <span id="btnText">Bangun Master Prompt</span>
@@ -110,9 +115,9 @@
 
         <!-- Output Section -->
         <section id="resultSection" class="hidden flex-col gap-6 animate-[fadeIn_0.5s_ease-out]">
-            
+
             <div class="flex justify-between items-center px-2">
-                <h2 class="text-2xl font-semibold">Hasil Analisis & Ekstensi</h2>
+                <h2 class="text-2xl font-semibold">Hasil Analisis &amp; Ekstensi</h2>
                 <button id="copyFullBtn" class="text-sm bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-700 transition-colors flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -167,7 +172,10 @@
     </div>
 
     <script>
-        const systemPrompt = `Anda adalah ahli Prompt Engineering (Prompt Engineer). 
+        // Ganti model di sini bila perlu. Contoh stabil terbaru: 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'.
+        const MODEL = 'gemini-3-flash-preview';
+
+        const systemPrompt = `Anda adalah ahli Prompt Engineering (Prompt Engineer).
 Tugas Anda adalah mengambil prompt singkat atau ide kasar dari pengguna, lalu mengembangkannya menjadi "Master Prompt" yang komprehensif.
 Gunakan kerangka kerja 'The Anatomy of a Claude prompt' yang terdiri dari 6 bagian ini:
 1. Role: Tetapkan persona pakar (misal: 'Bertindaklah sebagai senior strategist...').
@@ -182,8 +190,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
         // API Key Management
         const apiKeyInput = document.getElementById('apiKeyInput');
         const saveApiBtn = document.getElementById('saveApiBtn');
-        
-        // Load API Key from local storage if exists
+
         window.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('gemini_api_key');
             if (savedKey) {
@@ -207,10 +214,39 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
         const btnText = document.getElementById('btnText');
         const btnLoader = document.getElementById('btnLoader');
         const resultSection = document.getElementById('resultSection');
+        const errorBox = document.getElementById('errorBox');
+
+        function hideError() {
+            errorBox.classList.add('hidden');
+            errorBox.innerHTML = '';
+        }
+
+        function showApiError(title, message, linkHref, linkText) {
+            errorBox.innerHTML = '';
+            const head = document.createElement('p');
+            head.className = 'font-semibold text-red-200 mb-1';
+            head.textContent = title;
+            const body = document.createElement('p');
+            body.textContent = message;
+            errorBox.appendChild(head);
+            errorBox.appendChild(body);
+            if (linkHref) {
+                const a = document.createElement('a');
+                a.href = linkHref;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.className = 'inline-block mt-2 text-orange-400 underline font-medium';
+                a.textContent = linkText || 'Buka tautan';
+                errorBox.appendChild(a);
+            }
+            errorBox.classList.remove('hidden');
+        }
 
         generateBtn.addEventListener('click', async () => {
             const userText = basicPromptInput.value.trim();
             const apiKey = apiKeyInput.value.trim() || localStorage.getItem('gemini_api_key');
+
+            hideError();
 
             if (!apiKey) {
                 showToast("Silakan masukkan API Key Gemini Anda terlebih dahulu.", true);
@@ -228,7 +264,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             generateBtn.disabled = true;
             generateBtn.classList.add('opacity-70', 'cursor-not-allowed');
 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
             const payload = {
                 contents: [{ parts: [{ text: `Ide prompt: ${userText}` }] }],
@@ -253,28 +289,66 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': apiKey
+                    },
                     body: JSON.stringify(payload)
                 });
 
                 if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error?.message || "Gagal terhubung ke API");
+                    let message = `Permintaan gagal (HTTP ${response.status}).`;
+                    try {
+                        const errData = await response.json();
+                        message = errData.error?.message || message;
+                    } catch (e) { /* biarkan pesan default */ }
+                    const err = new Error(message);
+                    err.status = response.status;
+                    throw err;
                 }
 
                 const result = await response.json();
-                
+
                 if (result.candidates && result.candidates[0].content.parts[0].text) {
                     const jsonText = result.candidates[0].content.parts[0].text;
-                    const parsedData = JSON.parse(jsonText);
+                    let parsedData;
+                    try {
+                        parsedData = JSON.parse(jsonText);
+                    } catch (e) {
+                        throw new Error("Respons model bukan JSON yang valid. Coba lagi.");
+                    }
                     displayResults(parsedData);
                 } else {
-                    throw new Error("Format respons tidak sesuai");
+                    throw new Error("Format respons tidak sesuai.");
                 }
 
             } catch (error) {
                 console.error("Error:", error);
-                showToast(error.message, true);
+                const msg = String(error.message || error);
+                if (error.status === 402 || /prepay|credit|deplet|RESOURCE_EXHAUSTED/i.test(msg)) {
+                    showApiError(
+                        "Kredit Gemini API habis.",
+                        "Project Anda memerlukan saldo prepaid di AI Studio (minimum bervariasi per negara, umumnya USD 10). Tambahkan kredit lalu coba lagi. Catatan: pembayaran ke Google Cloud Billing tidak otomatis mengisi dompet prepaid AI Studio — keduanya sistem terpisah.",
+                        "https://aistudio.google.com/billing",
+                        "Buka Billing AI Studio"
+                    );
+                } else if (error.status === 401 || error.status === 403) {
+                    showApiError(
+                        "API Key ditolak.",
+                        "Kunci tidak valid, tidak punya akses ke model ini, atau belum dibatasi ke Gemini API. Buat kunci baru di AI Studio (otomatis dibatasi) lalu simpan ulang.",
+                        "https://aistudio.google.com/apikey",
+                        "Buat API Key baru"
+                    );
+                } else if (error.status === 404) {
+                    showApiError(
+                        "Model tidak ditemukan.",
+                        `Model "${MODEL}" tidak tersedia untuk kunci Anda. Ubah konstanta MODEL di dalam index.html ke model yang tersedia.`,
+                        "https://ai.google.dev/gemini-api/docs/models",
+                        "Lihat daftar model"
+                    );
+                } else {
+                    showToast(msg, true);
+                }
             } finally {
                 btnText.textContent = "Bangun Master Prompt";
                 btnLoader.classList.add('hidden');
@@ -299,11 +373,16 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             setTimeout(() => { resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
         }
 
-        document.getElementById('copyFullBtn').addEventListener('click', () => {
-            const textArea = document.getElementById('fullPromptText');
-            textArea.select();
+        document.getElementById('copyFullBtn').addEventListener('click', async () => {
+            const text = document.getElementById('fullPromptText').value;
             try {
-                document.execCommand('copy');
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textArea = document.getElementById('fullPromptText');
+                    textArea.select();
+                    document.execCommand('copy');
+                }
                 showToast("Prompt berhasil disalin ke clipboard!");
             } catch (err) {
                 showToast("Gagal menyalin text.", true);
@@ -314,7 +393,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
         const toast = document.getElementById('toast');
         function showToast(message, isError = false) {
             document.getElementById('toastMsg').textContent = message;
-            toast.querySelector('svg').outerHTML = isError 
+            toast.querySelector('svg').outerHTML = isError
                 ? `<svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`
                 : `<svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
             toast.classList.remove('hidden');
@@ -326,43 +405,16 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             }, 3000);
         }
 
-        // 1. Generate Manifest
-        const manifest = {
-            name: "Prompt Master Builder",
-            short_name: "PromptMaster",
-            description: "Ubah ide sederhana menjadi prompt tingkat lanjut.",
-            start_url: "./",
-            display: "standalone",
-            background_color: "#1a1a1a",
-            theme_color: "#1a1a1a",
-            icons: [{
-                src: "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f97316' rx='20'/%3E%3Ctext x='50' y='55' fill='white' font-family='sans-serif' font-weight='bold' font-size='40' text-anchor='middle'%3EPM%3C/text%3E%3C/svg%3E",
-                sizes: "192x192 512x512",
-                type: "image/svg+xml",
-                purpose: "any maskable"
-            }]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-        document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
-
-        // 2. Register Service Worker via Blob
+        // Register Service Worker (file terpisah: sw.js)
         if ('serviceWorker' in navigator) {
-            const swCode = `
-                self.addEventListener('install', (e) => self.skipWaiting());
-                self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
-                self.addEventListener('fetch', (e) => {
-                    e.respondWith(fetch(e.request).catch(() => new Response('Offline Mode.')));
-                });
-            `;
-            const swBlob = new Blob([swCode], { type: 'application/javascript' });
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register(URL.createObjectURL(swBlob))
-                    .then(() => console.log('PWA SW Registered'))
-                    .catch(err => console.error('SW Error:', err));
+                navigator.serviceWorker.register('sw.js')
+                    .then(() => console.log('PWA service worker registered'))
+                    .catch(err => console.error('Service worker registration failed:', err));
             });
         }
 
-        // 3. Handle Install Prompt
+        // Handle Install Prompt
         let deferredPrompt;
         const installContainer = document.getElementById('installContainer');
         const installBtn = document.getElementById('installBtn');
@@ -371,6 +423,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
             e.preventDefault();
             deferredPrompt = e;
             installContainer.classList.remove('hidden');
+            installContainer.classList.add('flex');
         });
 
         installBtn.addEventListener('click', async () => {
@@ -379,6 +432,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
                 const { outcome } = await deferredPrompt.userChoice;
                 if (outcome === 'accepted') {
                     installContainer.classList.add('hidden');
+                    installContainer.classList.remove('flex');
                 }
                 deferredPrompt = null;
             }
@@ -386,6 +440,7 @@ Berikan detail yang kaya, profesional, dan dapat langsung digunakan. Gunakan bah
 
         window.addEventListener('appinstalled', () => {
             installContainer.classList.add('hidden');
+            installContainer.classList.remove('flex');
             deferredPrompt = null;
         });
     </script>
